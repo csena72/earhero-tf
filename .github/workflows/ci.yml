@@ -1,0 +1,51 @@
+name: CI - Suite de pruebas EarHero
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  tests:
+    name: Unit + Functional + Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: Instalar navegador para Playwright
+        run: python -m playwright install --with-deps chromium
+
+      - name: Ejecutar suite con cobertura
+        run: |
+          pytest --cov --cov-report=term-missing \
+                 --cov-report=xml:coverage.xml \
+                 --cov-report=html:coverage_html \
+                 --cov-fail-under=90
+
+      - name: Publicar reporte de cobertura (artefacto)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: coverage_html/
+
+      - name: Subir cobertura a Codacy (opcional)
+        if: ${{ env.CODACY_PROJECT_TOKEN != '' }}
+        env:
+          CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+        run: |
+          bash <(curl -Ls https://coverage.codacy.com/get.sh) report \
+            --force-coverage-parser python -r coverage.xml
