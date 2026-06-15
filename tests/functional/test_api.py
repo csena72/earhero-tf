@@ -8,13 +8,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 from earhero import api
+from earhero.db import reset_db
 
 
 @pytest.fixture
 def client():
-    # Estado limpio entre tests.
-    api._auth = api.ServicioAuth()
-    api._categorias.clear()
+    # Base de datos limpia entre tests (SQLite en memoria).
+    reset_db()
     return TestClient(api.app)
 
 
@@ -64,13 +64,24 @@ def test_me_con_token_basura(client):
     assert r.status_code == 401
 
 
-def test_flujo_completo_de_ejercicio(client):
+def test_siguiente_genera_ejercicio(client):
     token = _registrar_y_login(client)
     headers = {"Authorization": f"Bearer {token}"}
+    r = client.post("/api/ejercicio/siguiente", headers=headers)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["longitud"] == len(body["secuencia"])
+    assert body["nivel"] >= 1
+
+
+def test_responder_correcto_suma_xp(client):
+    token = _registrar_y_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    secuencia = client.post("/api/ejercicio/siguiente", headers=headers).json()["secuencia"]
     r = client.post(
         "/api/ejercicio/responder",
         headers=headers,
-        json={"respuesta": "Do", "esperada": "Do"},
+        json={"respuesta": ",".join(secuencia)},
     )
     assert r.status_code == 200
     body = r.json()
@@ -78,7 +89,29 @@ def test_flujo_completo_de_ejercicio(client):
     assert body["xp_ganado"] >= 10
 
 
-def test_home_sirve_pagina_login(client):
+def test_responder_incorrecto(client):
+    token = _registrar_y_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    client.post("/api/ejercicio/siguiente", headers=headers)
+    r = client.post(
+        "/api/ejercicio/responder",
+        headers=headers,
+        json={"respuesta": "RespuestaMala"},
+    )
+    assert r.status_code == 200
+    assert r.json()["correcto"] is False
+
+
+def test_responder_sin_ejercicio_pendiente(client):
+    token = _registrar_y_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    r = client.post(
+        "/api/ejercicio/responder", headers=headers, json={"respuesta": "Do"}
+    )
+    assert r.status_code == 400
+
+
+def test_home_sirve_frontend(client):
     r = client.get("/")
     assert r.status_code == 200
-    assert "btn-login" in r.text
+    assert "EarHero" in r.text

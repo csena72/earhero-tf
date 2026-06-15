@@ -141,15 +141,35 @@ class Usuario:
     creado_en: float = field(default_factory=time.time)
 
 
-class ServicioAuth:
-    """Repositorio en memoria + casos de uso de autenticación.
-
-    Se mantiene en memoria para que la suite de tests sea determinista y no
-    dependa de una base de datos externa.
-    """
+class RepositorioMemoria:
+    """Repositorio de usuarios en memoria (default, usado por los tests)."""
 
     def __init__(self) -> None:
         self._por_email: dict[str, Usuario] = {}
+
+    def buscar_por_email(self, email: str) -> Usuario | None:
+        return self._por_email.get(email)
+
+    def buscar_por_id(self, user_id: str) -> Usuario | None:
+        for u in self._por_email.values():
+            if u.id == user_id:
+                return u
+        return None
+
+    def agregar(self, usuario: Usuario) -> None:
+        self._por_email[usuario.email] = usuario
+
+
+class ServicioAuth:
+    """Casos de uso de autenticación sobre un repositorio intercambiable.
+
+    Por defecto usa un repositorio en memoria, de modo que los tests son
+    deterministas y no dependen de una base de datos. La API inyecta un
+    repositorio respaldado por SQLAlchemy (ver repos.RepositorioUsuariosSQL).
+    """
+
+    def __init__(self, repo=None) -> None:
+        self._repo = repo or RepositorioMemoria()
 
     def registrar(self, email: str, password: str) -> Usuario:
         email_norm = (email or "").strip().lower()
@@ -157,26 +177,26 @@ class ServicioAuth:
             raise EmailInvalidoError(email)
         if not password_segura(password):
             raise PasswordDebilError("La contraseña no cumple la política mínima")
-        if email_norm in self._por_email:
+        if self._repo.buscar_por_email(email_norm) is not None:
             raise UsuarioYaExisteError(email_norm)
         usuario = Usuario(
             id=secrets.token_hex(8),
             email=email_norm,
             password_hash=hash_password(password),
         )
-        self._por_email[email_norm] = usuario
+        self._repo.agregar(usuario)
         return usuario
 
     def login(self, email: str, password: str) -> str:
         email_norm = (email or "").strip().lower()
-        usuario = self._por_email.get(email_norm)
+        usuario = self._repo.buscar_por_email(email_norm)
         if usuario is None or not verificar_password(password, usuario.password_hash):
             raise CredencialesInvalidasError("Email o contraseña incorrectos")
         return generar_token(usuario.id)
 
     def usuario_actual(self, token: str) -> Usuario:
         user_id = verificar_token(token)
-        for usuario in self._por_email.values():
-            if usuario.id == user_id:
-                return usuario
-        raise TokenInvalidoError("Usuario no encontrado para el token")
+        usuario = self._repo.buscar_por_id(user_id)
+        if usuario is None:
+            raise TokenInvalidoError("Usuario no encontrado para el token")
+        return usuario

@@ -3,7 +3,7 @@
 
 **Alumno:** Cristian José Sena
 **Curso:** Inteligencia Artificial para Programadores — UTN BA
-**Repositorio:** _([https://github.com/csena72/EarHeroAI](https://github.com/csena72/EarHeroAI))_
+**Repositorio:** _(pegá acá el link a GitHub/GitLab)_
 
 ---
 

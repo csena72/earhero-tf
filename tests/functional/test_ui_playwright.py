@@ -1,8 +1,8 @@
 """Prueba funcional de UI con Playwright (navegador headless).
 
-Levanta la app FastAPI en un hilo y verifica el flujo de login desde el
-navegador, tal como lo haría un usuario real. Se salta automáticamente si
-Playwright no está instalado, para no romper la suite en entornos sin browser.
+Levanta la app FastAPI (API + frontend) en un hilo y verifica el flujo de
+login y de un ejercicio desde el navegador, como un usuario real. Se salta
+automáticamente si Playwright no está instalado.
 """
 
 import socket
@@ -29,7 +29,9 @@ def _puerto_libre() -> int:
 
 @pytest.fixture(scope="module")
 def servidor():
-    api._auth = api.ServicioAuth()
+    from earhero.db import reset_db
+
+    reset_db()
     api._auth.registrar("demo@earhero.com", "Segura99")
     puerto = _puerto_libre()
     config = uvicorn.Config(api.app, host="127.0.0.1", port=puerto, log_level="warning")
@@ -44,7 +46,7 @@ def servidor():
     server.should_exit = True
 
 
-def test_login_exitoso_en_navegador(servidor):
+def test_login_muestra_la_app(servidor):
     with playwright_sync.sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
@@ -52,14 +54,12 @@ def test_login_exitoso_en_navegador(servidor):
         page.fill("#email", "demo@earhero.com")
         page.fill("#password", "Segura99")
         page.click("#btn-login")
-        page.wait_for_function(
-            "document.getElementById('status').textContent.length > 0"
-        )
-        assert page.inner_text("#status") == "Sesión iniciada"
+        page.wait_for_selector("#app:not(.hidden)")
+        assert page.is_visible("#btn-play")
         browser.close()
 
 
-def test_login_fallido_en_navegador(servidor):
+def test_login_fallido_muestra_error(servidor):
     with playwright_sync.sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
@@ -68,7 +68,7 @@ def test_login_fallido_en_navegador(servidor):
         page.fill("#password", "incorrecta1")
         page.click("#btn-login")
         page.wait_for_function(
-            "document.getElementById('status').textContent.length > 0"
+            "document.getElementById('auth-msg').textContent.length > 0"
         )
-        assert page.inner_text("#status") == "Credenciales inválidas"
+        assert "inválidas" in page.inner_text("#auth-msg")
         browser.close()

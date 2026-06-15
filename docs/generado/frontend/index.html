@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EarHero AI</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-mode">
+
+<header>
+    <h1>EarHero AI</h1>
+    <nav>
+        <!-- Links a otros módulos (no se muestran en MVP) -->
+    </nav>
+</header>
+
+<main>
+
+    <!-- Pantalla de Inicio / Bienvenida -->
+    <section id="inicio">
+        <div class="container">
+            <img src="logo.png" alt="EarHero AI Logo">
+            
+            <button class="cta" onclick="showLogin()">Ingresar</button>
+            <button class="cta" onclick="showRegister()">Registrarme</button>
+
+            <!-- Cards grandes -->
+            <div class="card">
+                <h2>Módulo de Fundamentos</h2>
+                <p>Entrenamiento básico para notas, intervalos y acordes.</p>
+            </div>
+            <div class="card">
+                <h2>Laboratorio de Hits (Spotify)</h2>
+                <p>Reproduce canciones en el motor de IA de Spotify.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pantalla de Entrenamiento -->
+    <section id="entrenamiento">
+        <div class="container">
+            <h1>Entrena tus habilidades auditivas</h1>
+            <div class="progress-bar"></div>
+            <button id="reproducir" class="cta">▶ Reproducir</button>
+
+            <!-- Grilla de botones de opción -->
+            <div class="buttons-container">
+                <!-- Botones correspondientes a Do, Re, Mi, Fa, Sol, La, Si -->
+            </div>
+
+            <!-- Botón destacado -->
+            <button id="aceptar" class="cta">Aceptar/Responder</button>
+        </div>
+    </section>
+
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>

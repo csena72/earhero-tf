@@ -76,3 +76,13 @@ class GestorDificultadAdaptativa:
         """RF-04: a menor nivel, menos notas en el ejercicio."""
         nivel = max(self.nivel_min, min(nivel, self.nivel_max))
         return 1 + (nivel - 1) // 2
+
+    def exportar_historial(self) -> list[bool]:
+        """Devuelve la ventana reciente (para persistirla)."""
+        return list(self._historial)
+
+    def importar_historial(self, valores: list[bool]) -> None:
+        """Reconstruye la ventana desde un estado persistido."""
+        self._historial.clear()
+        for v in valores[-self.ventana:]:
+            self._historial.append(bool(v))

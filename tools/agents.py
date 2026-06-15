@@ -69,20 +69,10 @@ PROMPTS = {
 }
 
 
-def ollama_generar(modelo: str, prompt: str, timeout: int = 600) -> str:
-    """Llama a /api/generate de Ollama. Lanza RuntimeError si no responde."""
-    payload = json.dumps({"model": modelo, "prompt": prompt, "stream": False}).encode()
-    req = urllib.request.Request(
-        OLLAMA_URL, data=payload, headers={"Content-Type": "application/json"}
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read())["response"].strip()
-    except urllib.error.URLError as exc:
-        raise RuntimeError(
-            f"No se pudo contactar a Ollama en {OLLAMA_URL}. "
-            f"¿Está corriendo `ollama serve` y bajaste el modelo '{modelo}'?\n{exc}"
-        ) from exc
+import sys as _sys
+_sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
+from ollama_client import ollama_generar  # cliente compartido
+
 
 
 def correr_agente(rol: str, **fmt) -> str:

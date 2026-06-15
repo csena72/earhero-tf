@@ -1,0 +1,29 @@
+version: '3.9'
+services:
+  db:
+    image: postgres:16-alpine
+    volumes:
+      - pgdata:/var/lib/postgresql/data/
+    healthcheck:
+      test: ["CMD", "postgres", "-U", "admin", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  earhero:
+    depends_on:
+      db:
+        condition: service_healthy
+    build: .
+    environment:
+      - DATABASE_URL=postgresql://postgres@db:5432/earhero
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:
+
+networks:
+  default:
+    external:
+      name: cicd_net

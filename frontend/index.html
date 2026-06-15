@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EarHero AI — Entrenamiento auditivo</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="brand">
+      <h1>EarHero<span>AI</span></h1>
+      <p class="tagline">Entrená tu oído. Reconocé las notas.</p>
+    </header>
+
+    <!-- Autenticación -->
+    <section id="auth" class="card">
+      <div class="tabs">
+        <button id="tab-login" class="tab active">Ingresar</button>
+        <button id="tab-register" class="tab">Crear cuenta</button>
+      </div>
+      <input id="email" type="email" placeholder="email" autocomplete="username" />
+      <input id="password" type="password" placeholder="contraseña" autocomplete="current-password" />
+      <button id="btn-login" class="primary">Ingresar</button>
+      <button id="btn-register" class="primary hidden">Crear cuenta</button>
+      <p id="auth-msg" class="msg"></p>
+      <p class="hint">La contraseña necesita 8+ caracteres, con letras y números.</p>
+    </section>
+
+    <!-- App de entrenamiento -->
+    <section id="app" class="card hidden">
+      <div class="stats">
+        <span>Nivel <strong id="nivel">1</strong></span>
+        <span>XP <strong id="xp">0</strong></span>
+        <button id="btn-logout" class="ghost">Salir</button>
+      </div>
+
+      <p class="instruccion">Escuchá la secuencia y reproducila con los botones.</p>
+      <button id="btn-play" class="primary">▶ Reproducir secuencia</button>
+
+      <div id="teclado" class="teclado"></div>
+
+      <div class="respuesta-box">
+        <span class="label">Tu respuesta:</span>
+        <span id="respuesta" class="respuesta"></span>
+        <button id="btn-borrar" class="ghost small">Borrar</button>
+      </div>
+
+      <div class="acciones">
+        <button id="btn-responder" class="primary" disabled>Responder</button>
+        <button id="btn-nuevo" class="ghost">Nuevo ejercicio</button>
+      </div>
+
+      <p id="resultado" class="resultado"></p>
+    </section>
+
+    <footer class="pie">EarHero AI — Trabajo Final · IA para Programadores</footer>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

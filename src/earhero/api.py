@@ -1,46 +1,89 @@
-"""API REST + UI mínima de EarHero AI (FastAPI).
+"""API REST + frontend de EarHero AI (FastAPI) con persistencia en base de datos.
 
-Expone los casos de uso para las pruebas funcionales:
-    POST /api/register
-    POST /api/login
-    GET  /api/me
-    POST /api/ejercicio/responder
-    GET  /            -> página HTML de login (para Playwright/Selenium)
+La documentación interactiva (Swagger UI) queda disponible en /docs y la
+alternativa ReDoc en /redoc. La persistencia (usuarios, perfiles, progreso y
+sesiones de ejercicio) se hace vía SQLAlchemy; la URL se toma de DATABASE_URL
+(PostgreSQL en docker-compose, SQLite en tests/dev).
 """
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import Depends, FastAPI, Header, HTTPException
-from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 from .auth import AuthError, ServicioAuth, TokenInvalidoError
-from .progreso import NivelCategoria, TipoModulo
-from .tutor import Ejercicio, TutorIA
+from .db import SessionLocal, init_db
+from .repos import RepositorioProgresoSQL, RepositorioUsuariosSQL
+from .tutor import TutorIA
 
-app = FastAPI(title="EarHero AI", version="1.0.0")
+DESCRIPCION = """
+**EarHero AI** — API de la app de entrenamiento auditivo.
 
-# Estado en memoria (suficiente para el MVP y los tests).
-_auth = ServicioAuth()
-_tutor = TutorIA()
-_categorias: dict[str, NivelCategoria] = {}
+Cubre el ciclo del documento de diseño: autenticación (JWT), generación de
+ejercicios por el *TutorIA*, ajuste de dificultad adaptativa y persistencia de
+progreso. La validación de cada respuesta se hace **del lado del servidor**.
+"""
 
+TAGS = [
+    {"name": "Autenticación", "description": "Registro, login y sesión (RF-01)."},
+    {"name": "Entrenamiento", "description": "Ejercicios, respuestas y progreso (RF-02/04)."},
+]
+
+app = FastAPI(
+    title="EarHero AI",
+    version="1.0.0",
+    description=DESCRIPCION,
+    openapi_tags=TAGS,
+    contact={"name": "Cristian Sena — TF IA para Programadores"},
+)
+
+# Servicios respaldados por la base de datos.
+_auth = ServicioAuth(RepositorioUsuariosSQL(SessionLocal))
+_progreso = RepositorioProgresoSQL(SessionLocal)
+
+
+# ---------- Esquemas (documentados en Swagger) ----------
 
 class Credenciales(BaseModel):
-    email: str
-    password: str
+    email: str = Field(..., examples=["demo@earhero.com"])
+    password: str = Field(..., examples=["Segura99"], description="8+ caracteres, con letras y números")
 
 
 class Respuesta(BaseModel):
-    respuesta: str
-    esperada: str
+    respuesta: str = Field(..., examples=["Do,Re,Mi"], description="Notas separadas por coma")
 
 
-def _categoria_de(user_id: str) -> NivelCategoria:
-    if user_id not in _categorias:
-        _categorias[user_id] = NivelCategoria(tipo=TipoModulo.NOTAS)
-    return _categorias[user_id]
+class UsuarioOut(BaseModel):
+    id: str
+    email: str
 
+
+class TokenOut(BaseModel):
+    token: str
+
+
+class MeOut(BaseModel):
+    id: str
+    nivel: int
+    xp: int
+
+
+class EjercicioOut(BaseModel):
+    nivel: int
+    longitud: int
+    secuencia: list[str] = Field(..., examples=[["Do", "Mi", "Sol"]])
+
+
+class ResultadoOut(BaseModel):
+    correcto: bool
+    xp_ganado: int
+    nivel: int
+
+
+# ---------- Dependencias ----------
 
 def _usuario_desde_header(authorization: str = Header(default="")) -> str:
     if not authorization.startswith("Bearer "):
@@ -52,8 +95,12 @@ def _usuario_desde_header(authorization: str = Header(default="")) -> str:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
 
 
-@app.post("/api/register")
+# ---------- Autenticación ----------
+
+@app.post("/api/register", tags=["Autenticación"], response_model=UsuarioOut,
+          summary="Registrar un nuevo usuario")
 def register(cred: Credenciales):
+    """Crea un usuario validando email y política de contraseña."""
     try:
         usuario = _auth.registrar(cred.email, cred.password)
     except AuthError as exc:
@@ -61,8 +108,10 @@ def register(cred: Credenciales):
     return {"id": usuario.id, "email": usuario.email}
 
 
-@app.post("/api/login")
+@app.post("/api/login", tags=["Autenticación"], response_model=TokenOut,
+          summary="Iniciar sesión y obtener token")
 def login(cred: Credenciales):
+    """Devuelve un token firmado (Bearer) válido por una hora."""
     try:
         token = _auth.login(cred.email, cred.password)
     except AuthError as exc:
@@ -70,17 +119,42 @@ def login(cred: Credenciales):
     return {"token": token}
 
 
-@app.get("/api/me")
+@app.get("/api/me", tags=["Autenticación"], response_model=MeOut,
+         summary="Datos del usuario autenticado")
 def me(user_id: str = Depends(_usuario_desde_header)):
-    cat = _categoria_de(user_id)
+    """Devuelve nivel y XP actuales. Requiere header `Authorization: Bearer <token>`."""
+    cat, _ = _progreso.cargar_categoria(user_id)
     return {"id": user_id, "nivel": cat.nivel, "xp": cat.puntos_acumulados}
 
 
-@app.post("/api/ejercicio/responder")
+# ---------- Entrenamiento ----------
+
+@app.post("/api/ejercicio/siguiente", tags=["Entrenamiento"], response_model=EjercicioOut,
+          summary="Generar el próximo ejercicio")
+def siguiente(user_id: str = Depends(_usuario_desde_header)):
+    """Genera un ejercicio según el nivel del usuario y lo deja como pendiente."""
+    cat, gestor = _progreso.cargar_categoria(user_id)
+    ejercicio = TutorIA(gestor).generar_siguiente_ejercicio(cat)
+    _progreso.guardar_pendiente(user_id, ejercicio)
+    return {
+        "nivel": ejercicio.nivel,
+        "longitud": len(ejercicio.secuencia),
+        "secuencia": ejercicio.secuencia,
+    }
+
+
+@app.post("/api/ejercicio/responder", tags=["Entrenamiento"], response_model=ResultadoOut,
+          summary="Responder el ejercicio pendiente")
 def responder(payload: Respuesta, user_id: str = Depends(_usuario_desde_header)):
-    cat = _categoria_de(user_id)
-    ej = Ejercicio(tipo=cat.tipo, nivel=cat.nivel, secuencia=payload.esperada.split(","))
-    resultado = _tutor.validar_respuesta(payload.respuesta, ej, cat)
+    """Valida la respuesta contra el ejercicio pendiente, otorga XP y ajusta dificultad."""
+    ejercicio = _progreso.cargar_pendiente(user_id)
+    if ejercicio is None:
+        raise HTTPException(status_code=400, detail="No hay ejercicio pendiente")
+    cat, gestor = _progreso.cargar_categoria(user_id)
+    resultado = TutorIA(gestor).validar_respuesta(payload.respuesta, ejercicio, cat)
+    _progreso.guardar_categoria(user_id, cat, gestor)
+    _progreso.actualizar_racha(user_id)
+    _progreso.resolver_pendiente(user_id)
     return {
         "correcto": resultado.correcto,
         "xp_ganado": resultado.xp_ganado,
@@ -88,31 +162,10 @@ def responder(payload: Respuesta, user_id: str = Depends(_usuario_desde_header))
     }
 
 
-_PAGINA_LOGIN = """<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><title>EarHero AI</title></head>
-<body>
-  <h1>EarHero AI</h1>
-  <form id="login-form" onsubmit="return false;">
-    <input id="email" type="email" placeholder="email" />
-    <input id="password" type="password" placeholder="contraseña" />
-    <button id="btn-login" type="button">Ingresar</button>
-  </form>
-  <p id="status"></p>
-  <script>
-    document.getElementById('btn-login').addEventListener('click', async () => {
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-      const r = await fetch('/api/login', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({email, password})
-      });
-      document.getElementById('status').textContent =
-        r.ok ? 'Sesión iniciada' : 'Credenciales inválidas';
-    });
-  </script>
-</body></html>"""
+# Crea las tablas al importar (en Docker la BD ya está disponible por depends_on).
+init_db()
 
-
-@app.get("/", response_class=HTMLResponse)
-def home():
-    return _PAGINA_LOGIN
+# --- Frontend estático (se monta DESPUÉS de las rutas /api) ---
+_FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
+if _FRONTEND_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=str(_FRONTEND_DIR), html=True), name="frontend")

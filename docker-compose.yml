@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: earhero-db
+    environment:
+      POSTGRES_USER: earhero
+      POSTGRES_PASSWORD: earhero
+      POSTGRES_DB: earhero
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U earhero -d earhero"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  earhero:
+    build: .
+    container_name: earhero-ai
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://earhero:earhero@db:5432/earhero
+      EARHERO_SECRET: cambia-esto-en-produccion
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+volumes:
+  pgdata:

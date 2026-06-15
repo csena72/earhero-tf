@@ -1,0 +1,103 @@
+/* styles.css */
+
+:root {
+  --violeta:     #4A3AB7; /* neon purple */
+  --violeta-osc: #2E1D8F; /* hover / acentos */
+  --azul:        #2E74B5; /* electric blue */
+  --bg:          #0F1020; /* fondo modo oscuro */
+  --card:        #1B1C33; /* superficie de cards (glassmorphism) */
+  --texto:       #E8E8F2;
+  --tenue:       #9B9BB5;
+  --ok:          #1F9D55;
+  --err:         #D64545;
+
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+body {
+  background: radial-gradient(to top, var(--bg), var(--card));
+  color: var(--texto);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+  transition: background-color 0.3s ease;
+}
+
+nav {
+  background-color: rgba(0, 0, 0, 0.5);
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+nav a {
+  color: var(--texto);
+  text-decoration: none;
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+.logo {
+  width: 50px;
+}
+
+button, input[type="submit"] {
+  padding: 14px 24px;
+  background-color: transparent;
+  border: 2px solid var(--violeta);
+  color: var(--texto);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+button:hover, input[type="submit"]:hover {
+  background-color: var(--violeta-osc);
+  border-color: var(--violeta-osc);
+}
+
+input[type="text"], input[type="number"] {
+  padding: 14px 24px;
+  width: 300px;
+  font-size: 16px;
+  color: var(--texto);
+}
+
+.cards-container {
+  display: grid;
+  gap: 20px;
+  justify-content: center;
+  align-items: center;
+  margin-top: 50px;
+}
+
+.card {
+  background-color: var(--card);
+  padding: 48px;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+h2, p, span {
+  color: var(--texto);
+}
+
+span.success {
+  color: var(--ok);
+}
+
+span.error {
+  color: var(--err);
+}
+
+/* Additional styles for cards and buttons */
