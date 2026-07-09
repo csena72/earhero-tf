@@ -1,4 +1,4 @@
-name: CI - Suite de pruebas EarHero
+name: CI + Deploy — EarHero AI
 
 on:
   push:
@@ -8,8 +8,9 @@ on:
 
 jobs:
   tests:
-    name: Unit + Functional + Coverage
+    name: Tests + Cobertura
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,17 +36,35 @@ jobs:
                  --cov-report=html:coverage_html \
                  --cov-fail-under=90
 
-      - name: Publicar reporte de cobertura (artefacto)
+      - name: Publicar reporte de cobertura
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-html
           path: coverage_html/
 
-      - name: Subir cobertura a Codacy (opcional)
-        if: ${{ env.CODACY_PROJECT_TOKEN != '' }}
-        env:
-          CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+  deploy:
+    name: Deploy a Render
+    runs-on: ubuntu-latest
+    needs: tests                       # Solo corre si los tests pasaron
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Deploy automático vía API de Render
         run: |
-          bash <(curl -Ls https://coverage.codacy.com/get.sh) report \
-            --force-coverage-parser python -r coverage.xml
+          python tools/deploy_render.py \
+            --token "${{ secrets.RENDER_API_KEY }}" \
+            --repo "${{ github.repository }}" \
+            --secret "${{ secrets.EARHERO_SECRET }}"
+        # Si RENDER_API_KEY no está configurado el step falla con mensaje claro.
+        # Para configurarlo: GitHub repo → Settings → Secrets → Actions → New secret
+        #   RENDER_API_KEY  = tu API key de https://dashboard.render.com/u/settings
+        #   EARHERO_SECRET  = un string largo aleatorio (para firmar los JWT)
