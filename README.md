@@ -49,6 +49,30 @@ uvicorn earhero.api:app --host 0.0.0.0 --port 8000
 ```
 
 
+## Deploy en Render.com
+
+La aplicación queda desplegada en Render en la siguiente URL pública:
+
+- https://earhero-tf.onrender.com/
+
+El despliegue automático se realiza mediante GitHub Actions y el script de ayuda en `tools/deploy_render.py`:
+
+1. Al hacer push a la rama `main`, el workflow en `.github/workflows/ci.yml` ejecuta los tests y, si pasan, dispara el deploy.
+2. El script crea o reutiliza el servicio Web y la base de datos PostgreSQL en Render.
+3. Configura las variables de entorno necesarias: `DATABASE_URL`, `EARHERO_SECRET` y `PYTHONUNBUFFERED`.
+4. Luego inicia el deploy y espera a que la app quede disponible.
+
+Si querés hacerlo manualmente, podés correr:
+
+```bash
+python tools/deploy_render.py \
+  --token <RENDER_API_KEY> \
+  --repo <owner/repo> \
+  --secret <EARHERO_SECRET>
+```
+
+Para que funcione, necesitás tener configurados los secrets `RENDER_API_KEY` y `EARHERO_SECRET` en GitHub Actions.
+
 ## Cómo correr (tests)
 
 ```bash
