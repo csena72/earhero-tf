@@ -177,14 +177,22 @@ def deploy(
     print("▶ 1/4  Base de datos PostgreSQL")
     pgs = listar_postgres(token)
     pg = buscar_por_nombre(pgs, nombre_db)
+    internal_url = None
+
     if pg:
         print(f"  Reutilizando PostgreSQL existente '{nombre_db}' (id={pg['id']})")
         pg_id = pg["id"]
+        internal_url = obtener_internal_url(token, pg_id)
     else:
-        pg = crear_postgres(token, nombre_db, region)
-        pg_id = pg.get("postgres", pg).get("id") or pg.get("id")
+        try:
+            pg = crear_postgres(token, nombre_db, region)
+            pg_id = pg.get("postgres", pg).get("id") or pg.get("id")
+            internal_url = obtener_internal_url(token, pg_id)
+        except Exception as exc:
+            print(f"  No se pudo crear PostgreSQL automáticamente: {exc}")
+            print("  Usando SQLite por compatibilidad en este entorno.")
+            internal_url = "sqlite:///./earhero.db"
 
-    internal_url = obtener_internal_url(token, pg_id)
     print(f"  DATABASE_URL lista ({'*' * 20}...)")
 
     # 2. Web Service
